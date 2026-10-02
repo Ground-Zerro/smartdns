@@ -8,13 +8,13 @@
 
 | Файл | Процессор | Размер | SHA-256 |
 |---|---|---|---|
-| `bin/mipselsf-k3.4/smartdns` | MIPS little-endian, soft-float (MT7621 и др.) | 4 101 976 Б | `0b882bde57081e91e837738cbedd7a13d00bfcb5607131ca2241b47796f747b3` |
-| `bin/mipssf-k3.4/smartdns` | MIPS big-endian, soft-float | 4 099 384 Б | `c425ff67a487e416c1c2cb78f971503196b6666092319b0a1b1b23861f5d7407` |
-| `bin/aarch64-k3.10/smartdns` | ARM64 | 4 030 360 Б | `c4b817a5ad49d6a103a1617a1bc6e066ffbd72d8f53f8d494e6d67fb841eaf54` |
+| `bin/mipselsf-k3.4/smartdns` | MIPS little-endian, soft-float (MT7621 и др.) | 4 101 976 Б | `4b0b060cefb6b48ebb0967f61d117429f2b9f5cb9fea85c786d94b3aa07e919f` |
+| `bin/mipssf-k3.4/smartdns` | MIPS big-endian, soft-float | 4 099 384 Б | `ac3ea1cbf5825e16ef09b216ca3fa67afd5a0a855d0982502102e631c976a17d` |
+| `bin/aarch64-k3.10/smartdns` | ARM64 | 4 030 360 Б | `a66ed25f814b75ca298834e05d2f69ee9ff8f19386d2aa9843c911624979acdb` |
 
 - Статические исполняемые файлы (musl, static-pie, без отладочных символов): от библиотек Entware не зависят.
 - OpenSSL 3.5.8 встроен и урезан до нужного DNS-клиенту: без TLS 1.0/1.1, устаревших шифров и неиспользуемых алгоритмов. Без zlib.
-- Версия: `smartdns -v` → `smartdns 48.4-hrweb1`.
+- Версия: `smartdns -v` → `smartdns 48.4-hrweb2`.
 - Сертификаты сборка не содержит: для DoT и DoH в конфиге нужен `ca-file`, например `ca-file /opt/etc/ssl/certs/ca-certificates.crt` (пакет Entware `ca-certificates`).
 
 ## Что добавляет патч
@@ -50,7 +50,7 @@ speed-check-mode none
 
 Работа с hrneo:
 - соединение одно и постоянное; ответ ждётся до 100 мс;
-- после таймаута или ошибки — пауза 5 с, затем новая попытка; если hrneo перезапустился, smartdns переподключается сразу при следующем запросе;
+- после таймаута или ошибки — пауза 1 с, затем новая попытка; если hrneo перезапустился, smartdns переподключается сразу при следующем запросе;
 - имена с пробелами и переводами строк в hrneo не отправляются;
 - в журнале smartdns — строки `hrneo connected` и `hrneo disconnected`;
 - кэш smartdns хранит ответы раздельно по группе серверов, поэтому после смены правил в hrneo ответ чужой группы не отдаётся.
