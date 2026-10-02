@@ -8,14 +8,15 @@
 
 | Файл | Процессор | Размер | SHA-256 |
 |---|---|---|---|
-| `bin/mipselsf-k3.4/smartdns` | MIPS little-endian, soft-float (MT7621 и др.) | 4 101 976 Б | `4b0b060cefb6b48ebb0967f61d117429f2b9f5cb9fea85c786d94b3aa07e919f` |
-| `bin/mipssf-k3.4/smartdns` | MIPS big-endian, soft-float | 4 099 384 Б | `ac3ea1cbf5825e16ef09b216ca3fa67afd5a0a855d0982502102e631c976a17d` |
-| `bin/aarch64-k3.10/smartdns` | ARM64 | 4 030 360 Б | `a66ed25f814b75ca298834e05d2f69ee9ff8f19386d2aa9843c911624979acdb` |
+| `bin/mipselsf-k3.4/smartdns` | MIPS little-endian, soft-float (MT7621 и др.) | 4 122 808 Б | `a1948ae714ce1d0860dd0ff9e10017e2a06403033c30b0bb4fc44ac996ed358d` |
+| `bin/mipssf-k3.4/smartdns` | MIPS big-endian, soft-float | 4 119 992 Б | `38675df70392b987e8bbec48972bf87fe077362618822980fa598c4645a80d97` |
+| `bin/aarch64-k3.10/smartdns` | ARM64 | 4 046 744 Б | `8087d71a6b9a3065034132330d059c99af62ab81abd42647afee403e9e44d0f2` |
 
 - Статические исполняемые файлы (musl, static-pie, без отладочных символов): от библиотек Entware не зависят.
 - OpenSSL 3.5.8 встроен и урезан до нужного DNS-клиенту: без TLS 1.0/1.1, устаревших шифров и неиспользуемых алгоритмов. Без zlib.
-- Версия: `smartdns -v` → `smartdns 48.4-hrweb2`.
+- Версия: `smartdns -v` → `smartdns 48.4-hrweb3`.
 - Сертификаты сборка не содержит: для DoT и DoH в конфиге нужен `ca-file`, например `ca-file /opt/etc/ssl/certs/ca-certificates.crt` (пакет Entware `ca-certificates`).
+- Сборки `48.4-hrweb1` и `48.4-hrweb2` не могли прочитать `ca-file` (OpenSSL был собран без stdio) и не запускались с серверами DoT и DoH — используйте `48.4-hrweb3` и новее.
 
 ## Что добавляет патч
 

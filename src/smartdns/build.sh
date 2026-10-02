@@ -4,10 +4,10 @@ DIR=$(cd "$(dirname "$0")" && pwd)
 TC="${TC:-/root/hrneo-bin/toolchains}"
 OPENSSL_VER=3.5.8
 SMARTDNS_TAG=Release48.4
-VER=48.4-hrweb2
+VER=48.4-hrweb3
 PATCH="$DIR/smartdns-48.4-hrweb.patch"
 ARCHS="${ARCHS:-mipsel}"
-SSL_TRIM="no-err no-filenames no-tls1 no-tls1_1 no-ct no-ocsp no-nextprotoneg no-http no-rfc3779 no-multiblock no-autoload-config no-stdio no-camellia no-aria no-sm2 no-sm3 no-sm4 no-idea no-seed no-whirlpool no-md4 no-mdc2 no-rc2 no-rc4 no-rc5 no-bf no-cast no-des no-dsa no-srp no-cms no-ts no-siphash no-scrypt no-gost no-rmd160 no-ssl3 no-dtls no-cmp no-ocb no-sctp no-srtp no-psk no-weak-ssl-ciphers no-argon2 no-ec2m no-sm2-precomp no-ml-dsa no-slh-dsa"
+SSL_TRIM="no-err no-filenames no-tls1 no-tls1_1 no-ct no-ocsp no-nextprotoneg no-http no-rfc3779 no-multiblock no-autoload-config no-camellia no-aria no-sm2 no-sm3 no-sm4 no-idea no-seed no-whirlpool no-md4 no-mdc2 no-rc2 no-rc4 no-rc5 no-bf no-cast no-des no-dsa no-srp no-cms no-ts no-siphash no-scrypt no-gost no-rmd160 no-ssl3 no-dtls no-cmp no-ocb no-sctp no-srtp no-psk no-weak-ssl-ciphers no-argon2 no-ec2m no-sm2-precomp no-ml-dsa no-slh-dsa"
 
 mkdir -p "$DIR/src" "$DIR/build"
 [ -d "$DIR/src/openssl-$OPENSSL_VER" ] || curl -fsSL "https://github.com/openssl/openssl/releases/download/openssl-$OPENSSL_VER/openssl-$OPENSSL_VER.tar.gz" | tar xz -C "$DIR/src"
