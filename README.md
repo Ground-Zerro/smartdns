@@ -2,13 +2,15 @@
 
 Сборка [smartdns](https://github.com/pymumu/smartdns) 48.4 с патчем Hydra Route для роутеров Keenetic с Entware. Её скачивает веб-интерфейс Hydra Route при включении «Службы DNS» и запускает как `/opt/sbin/hrweb-dns`, отдельно ставить её не нужно.
 
+Ссылка на файл: `https://raw.githubusercontent.com/Ground-Zerro/smartdns/main/bin/<папка>/smartdns`.
+
 ## Файлы
 
 | Файл | Процессор | Размер | SHA-256 |
 |---|---|---|---|
-| `keenetic/bin/mipselsf-k3.4/smartdns` | MIPS little-endian, soft-float (MT7621 и др.) | 4 101 976 Б | `0b882bde57081e91e837738cbedd7a13d00bfcb5607131ca2241b47796f747b3` |
-| `keenetic/bin/mipssf-k3.4/smartdns` | MIPS big-endian, soft-float | 4 099 384 Б | `c425ff67a487e416c1c2cb78f971503196b6666092319b0a1b1b23861f5d7407` |
-| `keenetic/bin/aarch64-k3.10/smartdns` | ARM64 | 4 030 360 Б | `c4b817a5ad49d6a103a1617a1bc6e066ffbd72d8f53f8d494e6d67fb841eaf54` |
+| `bin/mipselsf-k3.4/smartdns` | MIPS little-endian, soft-float (MT7621 и др.) | 4 101 976 Б | `0b882bde57081e91e837738cbedd7a13d00bfcb5607131ca2241b47796f747b3` |
+| `bin/mipssf-k3.4/smartdns` | MIPS big-endian, soft-float | 4 099 384 Б | `c425ff67a487e416c1c2cb78f971503196b6666092319b0a1b1b23861f5d7407` |
+| `bin/aarch64-k3.10/smartdns` | ARM64 | 4 030 360 Б | `c4b817a5ad49d6a103a1617a1bc6e066ffbd72d8f53f8d494e6d67fb841eaf54` |
 
 - Статические исполняемые файлы (musl, static-pie, без отладочных символов): от библиотек Entware не зависят.
 - OpenSSL 3.5.8 встроен и урезан до нужного DNS-клиенту: без TLS 1.0/1.1, устаревших шифров и неиспользуемых алгоритмов. Без zlib.
@@ -65,18 +67,19 @@ speed-check-mode none
 
 - smartdns: https://github.com/pymumu/smartdns, тег `Release48.4`;
 - OpenSSL: https://github.com/openssl/openssl/releases/tag/openssl-3.5.8;
-- патч Hydra Route: `smartdns-48.4-hrweb.patch` в этой папке;
-- скрипт сборки: `build.sh` в этой папке — скачивает исходники, накладывает патч, собирает OpenSSL и smartdns статически.
+- патч Hydra Route: `src/smartdns/smartdns-48.4-hrweb.patch`;
+- скрипт сборки: `src/smartdns/build.sh` — скачивает исходники, накладывает патч, собирает OpenSSL и smartdns статически.
 
 ```
+cd src/smartdns
 TRIM=1 ARCHS="mipsel mips aarch64" TC=/путь/к/тулчейнам ./build.sh
 ```
 
-Тулчейны — musl-cross-make (GCC 11.2.1), папки `mipsel-linux-muslsf-cross`, `mips-linux-muslsf-cross`, `aarch64-linux-musl-cross` в каталоге `TC`. Готовые файлы — `release/keenetic/bin/<папка>/smartdns`. `ARCHS=x86_64 ./build.sh` собирает версию для ПК (динамическую, с системным OpenSSL) — для проверок.
+Тулчейны — musl-cross-make (GCC 11.2.1), папки `mipsel-linux-muslsf-cross`, `mips-linux-muslsf-cross`, `aarch64-linux-musl-cross` в каталоге `TC`. Готовые файлы — в `src/smartdns/release/` с той же раскладкой, что у этого репозитория. `ARCHS=x86_64 ./build.sh` собирает версию для ПК (динамическую, с системным OpenSSL) — для проверок.
 
 ## Лицензии
 
 - smartdns и патч Hydra Route — GNU GPL v3, текст — `LICENSE`.
 - OpenSSL — Apache License 2.0, текст — `LICENSE.openssl`.
 
-Исходники, из которых собраны файлы, — по ссылкам выше вместе с патчем и скриптом из этой папки.
+Исходники, из которых собраны файлы, — по ссылкам выше вместе с патчем и скриптом из `src/smartdns/`.

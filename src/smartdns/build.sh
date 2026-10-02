@@ -52,15 +52,15 @@ for arch in $ARCHS; do
     cp "$SRC/smartdns" "$OUT"
     rm -rf "$SRC"
     if [ -n "$TRIM" ]; then
-        mkdir -p "$DIR/release/keenetic/bin/$rel"
-        cp "$OUT" "$DIR/release/keenetic/bin/$rel/smartdns"
+        mkdir -p "$DIR/release/bin/$rel"
+        cp "$OUT" "$DIR/release/bin/$rel/smartdns"
     fi
     ls -la "$OUT"
 done
 
 if [ -n "$TRIM" ]; then
-    mkdir -p "$DIR/release/keenetic/src/smartdns"
-    cp "$DIR/build.sh" "$PATCH" "$DIR/release/keenetic/src/smartdns/"
-    cp "$DIR/src/smartdns-48.4/LICENSE" "$DIR/release/keenetic/src/smartdns/LICENSE"
-    cp "$DIR/src/openssl-$OPENSSL_VER/LICENSE.txt" "$DIR/release/keenetic/src/smartdns/LICENSE.openssl"
+    mkdir -p "$DIR/release/src/smartdns"
+    cp "$DIR/build.sh" "$PATCH" "$DIR/release/src/smartdns/"
+    cp "$DIR/src/smartdns-48.4/LICENSE" "$DIR/release/LICENSE"
+    cp "$DIR/src/openssl-$OPENSSL_VER/LICENSE.txt" "$DIR/release/LICENSE.openssl"
 fi
