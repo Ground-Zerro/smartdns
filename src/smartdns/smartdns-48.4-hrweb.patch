@@ -1,6 +1,35 @@
+diff -ruN a/dns_client/client_tcp.c b/dns_client/client_tcp.c
+--- a/dns_client/client_tcp.c	2026-10-02 15:06:04.621294478 +0000
++++ b/dns_client/client_tcp.c	2026-10-02 15:06:17.573294270 +0000
+@@ -84,11 +84,6 @@
+ 		}
+ 	}
+ 
+-	/* enable tcp fast open */
+-	if (setsockopt(fd, IPPROTO_TCP, TCP_FASTOPEN_CONNECT, &yes, sizeof(yes)) != 0) {
+-		tlog(TLOG_DEBUG, "enable TCP fast open failed, %s", strerror(errno));
+-	}
+-
+ 	setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &yes, sizeof(yes));
+ 	setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority));
+ 	setsockopt(fd, IPPROTO_IP, IP_TOS, &ip_tos, sizeof(ip_tos));
+diff -ruN a/dns_client/client_tls.c b/dns_client/client_tls.c
+--- a/dns_client/client_tls.c	2026-10-02 15:06:04.621294478 +0000
++++ b/dns_client/client_tls.c	2026-10-02 15:06:17.573294270 +0000
+@@ -437,10 +437,6 @@
+ 		}
+ 	}
+ 
+-	if (setsockopt(fd, IPPROTO_TCP, TCP_FASTOPEN_CONNECT, &yes, sizeof(yes)) != 0) {
+-		tlog(TLOG_DEBUG, "enable TCP fast open failed.");
+-	}
+-
+ 	// ? this cause ssl crash ?
+ 	setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &yes, sizeof(yes));
+ 	setsockopt(fd, IPPROTO_TCP, TCP_THIN_DUPACK, &yes, sizeof(yes));
 diff -ruN a/dns_client/group.c b/dns_client/group.c
---- a/dns_client/group.c	2026-10-02 11:07:41.795327088 +0000
-+++ b/dns_client/group.c	2026-10-02 11:11:04.278277570 +0000
+--- a/dns_client/group.c	2026-10-02 15:06:04.621294478 +0000
++++ b/dns_client/group.c	2026-10-02 15:06:17.565294270 +0000
 @@ -51,13 +51,12 @@
  {
  	struct dns_server_group *group = _dns_client_get_group(group_name);
@@ -21,8 +50,8 @@ diff -ruN a/dns_client/group.c b/dns_client/group.c
  
  	return group;
 diff -ruN a/dns_client/pending_server.c b/dns_client/pending_server.c
---- a/dns_client/pending_server.c	2026-10-02 11:07:41.795327088 +0000
-+++ b/dns_client/pending_server.c	2026-10-02 11:14:10.082274584 +0000
+--- a/dns_client/pending_server.c	2026-10-02 15:06:04.621294478 +0000
++++ b/dns_client/pending_server.c	2026-10-02 15:06:17.565294270 +0000
 @@ -377,17 +377,12 @@
  
  void _dns_client_add_pending_servers(void)
@@ -54,8 +83,8 @@ diff -ruN a/dns_client/pending_server.c b/dns_client/pending_server.c
  		} else {
  			tlog(TLOG_INFO, "add pending DNS server %s failed, retry %d...", pending->host, pending->retry_cnt - 1);
 diff -ruN a/dns_conf/dns_conf.c b/dns_conf/dns_conf.c
---- a/dns_conf/dns_conf.c	2026-10-02 11:07:41.795327088 +0000
-+++ b/dns_conf/dns_conf.c	2026-10-02 11:07:57.138994862 +0000
+--- a/dns_conf/dns_conf.c	2026-10-02 15:06:04.621294478 +0000
++++ b/dns_conf/dns_conf.c	2026-10-02 15:06:17.565294270 +0000
 @@ -17,6 +17,7 @@
   */
  
@@ -76,7 +105,7 @@ diff -ruN a/dns_conf/dns_conf.c b/dns_conf/dns_conf.c
  	CONF_CUSTOM("cname", _config_cname, NULL),
 diff -ruN a/dns_server/hrneo.c b/dns_server/hrneo.c
 --- a/dns_server/hrneo.c	1970-01-01 00:00:00.000000000 +0000
-+++ b/dns_server/hrneo.c	2026-10-02 11:07:57.138994862 +0000
++++ b/dns_server/hrneo.c	2026-10-02 15:06:17.565294270 +0000
 @@ -0,0 +1,183 @@
 +#include "smartdns/hrneo.h"
 +#include "smartdns/dns_conf.h"
@@ -262,8 +291,8 @@ diff -ruN a/dns_server/hrneo.c b/dns_server/hrneo.c
 +	return 0;
 +}
 diff -ruN a/dns_server/request.c b/dns_server/request.c
---- a/dns_server/request.c	2026-10-02 11:07:41.791325088 +0000
-+++ b/dns_server/request.c	2026-10-02 11:07:57.138994862 +0000
+--- a/dns_server/request.c	2026-10-02 15:06:04.613294478 +0000
++++ b/dns_server/request.c	2026-10-02 15:06:17.565294270 +0000
 @@ -33,6 +33,7 @@
  
  #include "smartdns/dns_plugin.h"
@@ -308,7 +337,7 @@ diff -ruN a/dns_server/request.c b/dns_server/request.c
  				continue;
 diff -ruN a/include/smartdns/hrneo.h b/include/smartdns/hrneo.h
 --- a/include/smartdns/hrneo.h	1970-01-01 00:00:00.000000000 +0000
-+++ b/include/smartdns/hrneo.h	2026-10-02 11:07:57.138994862 +0000
++++ b/include/smartdns/hrneo.h	2026-10-02 15:06:17.565294270 +0000
 @@ -0,0 +1,19 @@
 +#ifndef _SMARTDNS_HRNEO_H_
 +#define _SMARTDNS_HRNEO_H_
