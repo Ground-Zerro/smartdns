@@ -36,7 +36,7 @@ diff -ruN a/dns_server/hrneo.c b/dns_server/hrneo.c
 +#include <unistd.h>
 +
 +#define HRNEO_TIMEOUT_MS 100
-+#define HRNEO_RETRY_MS 5000
++#define HRNEO_RETRY_MS 1000
 +#define HRNEO_LINE_MAX 512
 +
 +struct hrneo_target {
