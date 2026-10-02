@@ -1,6 +1,61 @@
+diff -ruN a/dns_client/group.c b/dns_client/group.c
+--- a/dns_client/group.c	2026-10-02 11:07:41.795327088 +0000
++++ b/dns_client/group.c	2026-10-02 11:11:04.278277570 +0000
+@@ -51,13 +51,12 @@
+ {
+ 	struct dns_server_group *group = _dns_client_get_group(group_name);
+ 
+-	if (group == NULL) {
+-		goto use_default;
+-	} else {
+-		if (list_empty(&group->head)) {
+-			tlog(TLOG_DEBUG, "server group %s not exist, use default server group.", group_name);
+-			goto use_default;
++	if (group == NULL || list_empty(&group->head)) {
++		if (group_name != NULL && group_name[0] != '\0') {
++			tlog(TLOG_DEBUG, "server group %s has no servers yet, no fallback to default group.", group_name);
++			return NULL;
+ 		}
++		goto use_default;
+ 	}
+ 
+ 	return group;
+diff -ruN a/dns_client/pending_server.c b/dns_client/pending_server.c
+--- a/dns_client/pending_server.c	2026-10-02 11:07:41.795327088 +0000
++++ b/dns_client/pending_server.c	2026-10-02 11:14:10.082274584 +0000
+@@ -377,17 +377,12 @@
+ 
+ void _dns_client_add_pending_servers(void)
+ {
+-#ifdef TEST
+ 	const int delay_value = 1;
+-#else
+-	const int delay_value = 3;
+-#endif
+ 	struct dns_server_pending *pending = NULL;
+ 	struct dns_server_pending *tmp = NULL;
+ 	static int delay = delay_value;
+ 	LIST_HEAD(retry_list);
+ 
+-	/* add pending server after 3 seconds */
+ 	if (++delay < delay_value) {
+ 		return;
+ 	}
+@@ -483,10 +478,7 @@
+ 			continue;
+ 		}
+ 
+-		if (pending->retry_cnt - 1 > DNS_PENDING_SERVER_RETRY || add_success) {
+-			if (add_success == 0) {
+-				tlog(TLOG_WARN, "add pending DNS server %s failed.", pending->host);
+-			}
++		if (add_success) {
+ 			_dns_client_server_pending_remove(pending);
+ 		} else {
+ 			tlog(TLOG_INFO, "add pending DNS server %s failed, retry %d...", pending->host, pending->retry_cnt - 1);
 diff -ruN a/dns_conf/dns_conf.c b/dns_conf/dns_conf.c
---- a/dns_conf/dns_conf.c
-+++ b/dns_conf/dns_conf.c
+--- a/dns_conf/dns_conf.c	2026-10-02 11:07:41.795327088 +0000
++++ b/dns_conf/dns_conf.c	2026-10-02 11:07:57.138994862 +0000
 @@ -17,6 +17,7 @@
   */
  
@@ -9,19 +64,20 @@ diff -ruN a/dns_conf/dns_conf.c b/dns_conf/dns_conf.c
  #include "smartdns/lib/idna.h"
  #include "smartdns/tlog.h"
  #include "smartdns/util.h"
-@@ -194,6 +195,8 @@
+@@ -194,6 +195,9 @@
  	CONF_YESNO("mdns-lookup", &dns_conf.mdns_lookup),
  	CONF_YESNO("local-ptr-enable", &dns_conf.local_ptr_enable),
  	CONF_CUSTOM("nameserver", _config_nameserver, NULL),
 +	CONF_CUSTOM("hrneo-socket", hrneo_conf_socket, NULL),
 +	CONF_CUSTOM("hrneo-target", hrneo_conf_target, NULL),
++	CONF_YESNO("edns-client-subnet-strip", &hrneo_ecs_strip),
  	CONF_YESNO("expand-ptr-from-address", &dns_conf.expand_ptr_from_address),
  	CONF_CUSTOM("address", _config_address, NULL),
  	CONF_CUSTOM("cname", _config_cname, NULL),
 diff -ruN a/dns_server/hrneo.c b/dns_server/hrneo.c
---- a/dns_server/hrneo.c
-+++ b/dns_server/hrneo.c
-@@ -0,0 +1,182 @@
+--- a/dns_server/hrneo.c	1970-01-01 00:00:00.000000000 +0000
++++ b/dns_server/hrneo.c	2026-10-02 11:07:57.138994862 +0000
+@@ -0,0 +1,183 @@
 +#include "smartdns/hrneo.h"
 +#include "smartdns/dns_conf.h"
 +#include "smartdns/tlog.h"
@@ -49,6 +105,7 @@ diff -ruN a/dns_server/hrneo.c b/dns_server/hrneo.c
 +static int hrneo_targets_num;
 +static int hrneo_fd = -1;
 +static unsigned long hrneo_retry_tick;
++int hrneo_ecs_strip;
 +
 +int hrneo_conf_socket(void *data, int argc, char *argv[])
 +{
@@ -205,8 +262,8 @@ diff -ruN a/dns_server/hrneo.c b/dns_server/hrneo.c
 +	return 0;
 +}
 diff -ruN a/dns_server/request.c b/dns_server/request.c
---- a/dns_server/request.c
-+++ b/dns_server/request.c
+--- a/dns_server/request.c	2026-10-02 11:07:41.791325088 +0000
++++ b/dns_server/request.c	2026-10-02 11:07:57.138994862 +0000
 @@ -33,6 +33,7 @@
  
  #include "smartdns/dns_plugin.h"
@@ -215,22 +272,44 @@ diff -ruN a/dns_server/request.c b/dns_server/request.c
  
  int _dns_server_has_bind_flag(struct dns_request *request, uint32_t flag)
  {
-@@ -918,6 +919,11 @@
+@@ -918,9 +919,21 @@
  		return NULL;
  	}
  
+-	/* Get the nameserver rule */
++	struct dns_nameserver_rule *nameserver_rule = NULL;
+ 	if (request->domain_rule.rules[DOMAIN_RULE_NAMESERVER]) {
+-		struct dns_nameserver_rule *nameserver_rule = _dns_server_get_dns_rule(request, DOMAIN_RULE_NAMESERVER);
++		nameserver_rule = _dns_server_get_dns_rule(request, DOMAIN_RULE_NAMESERVER);
++	}
++
++	if (nameserver_rule && nameserver_rule->group_name && strcmp(nameserver_rule->group_name, "bootstrap-dns") == 0) {
++		return nameserver_rule->group_name;
++	}
++
 +	const char *hrneo_group = NULL;
 +	if (hrneo_match(request->domain, &hrneo_group) == 1) {
 +		return hrneo_group;
 +	}
 +
- 	/* Get the nameserver rule */
- 	if (request->domain_rule.rules[DOMAIN_RULE_NAMESERVER]) {
- 		struct dns_nameserver_rule *nameserver_rule = _dns_server_get_dns_rule(request, DOMAIN_RULE_NAMESERVER);
++	if (nameserver_rule) {
+ 		return nameserver_rule->group_name;
+ 	}
+ 
+@@ -1399,6 +1412,9 @@
+ 			_dns_server_update_request_connection_timeout(request->conn, idle_timeout / 10);
+ 		} break;
+ 		case DNS_OPT_T_ECS:
++			if (hrneo_ecs_strip) {
++				break;
++			}
+ 			ret = dns_get_OPT_ECS(rrs, &request->ecs);
+ 			if (ret != 0) {
+ 				continue;
 diff -ruN a/include/smartdns/hrneo.h b/include/smartdns/hrneo.h
---- a/include/smartdns/hrneo.h
-+++ b/include/smartdns/hrneo.h
-@@ -0,0 +1,17 @@
+--- a/include/smartdns/hrneo.h	1970-01-01 00:00:00.000000000 +0000
++++ b/include/smartdns/hrneo.h	2026-10-02 11:07:57.138994862 +0000
+@@ -0,0 +1,19 @@
 +#ifndef _SMARTDNS_HRNEO_H_
 +#define _SMARTDNS_HRNEO_H_
 +
@@ -243,6 +322,8 @@ diff -ruN a/include/smartdns/hrneo.h b/include/smartdns/hrneo.h
 +int hrneo_conf_target(void *data, int argc, char *argv[]);
 +
 +int hrneo_match(const char *domain, const char **group);
++
++extern int hrneo_ecs_strip;
 +
 +#ifdef __cplusplus
 +}
