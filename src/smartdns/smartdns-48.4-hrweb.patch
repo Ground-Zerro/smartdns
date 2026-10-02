@@ -1,0 +1,250 @@
+diff -ruN a/dns_conf/dns_conf.c b/dns_conf/dns_conf.c
+--- a/dns_conf/dns_conf.c
++++ b/dns_conf/dns_conf.c
+@@ -17,6 +17,7 @@
+  */
+ 
+ #include "smartdns/dns_conf.h"
++#include "smartdns/hrneo.h"
+ #include "smartdns/lib/idna.h"
+ #include "smartdns/tlog.h"
+ #include "smartdns/util.h"
+@@ -194,6 +195,8 @@
+ 	CONF_YESNO("mdns-lookup", &dns_conf.mdns_lookup),
+ 	CONF_YESNO("local-ptr-enable", &dns_conf.local_ptr_enable),
+ 	CONF_CUSTOM("nameserver", _config_nameserver, NULL),
++	CONF_CUSTOM("hrneo-socket", hrneo_conf_socket, NULL),
++	CONF_CUSTOM("hrneo-target", hrneo_conf_target, NULL),
+ 	CONF_YESNO("expand-ptr-from-address", &dns_conf.expand_ptr_from_address),
+ 	CONF_CUSTOM("address", _config_address, NULL),
+ 	CONF_CUSTOM("cname", _config_cname, NULL),
+diff -ruN a/dns_server/hrneo.c b/dns_server/hrneo.c
+--- a/dns_server/hrneo.c
++++ b/dns_server/hrneo.c
+@@ -0,0 +1,182 @@
++#include "smartdns/hrneo.h"
++#include "smartdns/dns_conf.h"
++#include "smartdns/tlog.h"
++#include "smartdns/util.h"
++
++#include <poll.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/socket.h>
++#include <sys/un.h>
++#include <unistd.h>
++
++#define HRNEO_TIMEOUT_MS 100
++#define HRNEO_RETRY_MS 5000
++#define HRNEO_LINE_MAX 512
++
++struct hrneo_target {
++	char *target;
++	char group[DNS_GROUP_NAME_LEN];
++};
++
++static char hrneo_path[sizeof(((struct sockaddr_un *)0)->sun_path)];
++static struct hrneo_target *hrneo_targets;
++static int hrneo_targets_num;
++static int hrneo_fd = -1;
++static unsigned long hrneo_retry_tick;
++
++int hrneo_conf_socket(void *data, int argc, char *argv[])
++{
++	if (argc < 2 || strlen(argv[1]) >= sizeof(hrneo_path)) {
++		tlog(TLOG_ERROR, "invalid hrneo-socket.");
++		return -1;
++	}
++
++	safe_strncpy(hrneo_path, argv[1], sizeof(hrneo_path));
++	return 0;
++}
++
++int hrneo_conf_target(void *data, int argc, char *argv[])
++{
++	if (argc < 3 || strlen(argv[2]) >= DNS_GROUP_NAME_LEN) {
++		tlog(TLOG_ERROR, "invalid hrneo-target, expected: hrneo-target <target> <group>.");
++		return -1;
++	}
++
++	struct hrneo_target *targets = realloc(hrneo_targets, (hrneo_targets_num + 1) * sizeof(*targets));
++	if (targets == NULL) {
++		return -1;
++	}
++	hrneo_targets = targets;
++
++	struct hrneo_target *target = &hrneo_targets[hrneo_targets_num];
++	target->target = strdup(argv[1]);
++	if (target->target == NULL) {
++		return -1;
++	}
++	safe_strncpy(target->group, argv[2], sizeof(target->group));
++	hrneo_targets_num++;
++	return 0;
++}
++
++static const char *_hrneo_group(const char *target)
++{
++	for (int i = 0; i < hrneo_targets_num; i++) {
++		if (strcmp(hrneo_targets[i].target, target) == 0) {
++			return hrneo_targets[i].group;
++		}
++	}
++	return NULL;
++}
++
++static void _hrneo_close(void)
++{
++	close(hrneo_fd);
++	hrneo_fd = -1;
++}
++
++static void _hrneo_drop(void)
++{
++	_hrneo_close();
++	hrneo_retry_tick = get_tick_count() + HRNEO_RETRY_MS;
++	tlog(TLOG_WARN, "hrneo disconnected, retry in %d ms.", HRNEO_RETRY_MS);
++}
++
++static int _hrneo_peer_closed(void)
++{
++	struct pollfd pfd = {.fd = hrneo_fd, .events = POLLIN};
++	return poll(&pfd, 1, 0) != 0;
++}
++
++static int _hrneo_connect(void)
++{
++	if (hrneo_fd >= 0 && _hrneo_peer_closed()) {
++		_hrneo_close();
++	}
++
++	if (hrneo_fd >= 0) {
++		return 0;
++	}
++
++	if (hrneo_retry_tick != 0 && (long)(hrneo_retry_tick - get_tick_count()) > 0) {
++		return -1;
++	}
++
++	struct sockaddr_un addr = {.sun_family = AF_UNIX};
++	safe_strncpy(addr.sun_path, hrneo_path, sizeof(addr.sun_path));
++
++	int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
++	if (fd < 0) {
++		return -1;
++	}
++
++	if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
++		close(fd);
++		hrneo_retry_tick = get_tick_count() + HRNEO_RETRY_MS;
++		return -1;
++	}
++
++	hrneo_fd = fd;
++	tlog(TLOG_INFO, "hrneo connected: %s", hrneo_path);
++	return 0;
++}
++
++static int _hrneo_read_line(char *buf, size_t size)
++{
++	size_t len = 0;
++	unsigned long deadline = get_tick_count() + HRNEO_TIMEOUT_MS;
++
++	while (len < size - 1) {
++		long left = (long)(deadline - get_tick_count());
++		struct pollfd pfd = {.fd = hrneo_fd, .events = POLLIN};
++		if (left <= 0 || poll(&pfd, 1, left) <= 0) {
++			return -1;
++		}
++
++		ssize_t n = recv(hrneo_fd, buf + len, size - 1 - len, 0);
++		if (n <= 0) {
++			return -1;
++		}
++		len += n;
++
++		char *eol = memchr(buf, '\n', len);
++		if (eol != NULL) {
++			*eol = '\0';
++			return eol + 1 == buf + len ? 0 : -1;
++		}
++	}
++
++	return -1;
++}
++
++int hrneo_match(const char *domain, const char **group)
++{
++	char buf[HRNEO_LINE_MAX];
++	char *end = NULL;
++
++	if (hrneo_path[0] == '\0' || strpbrk(domain, " \t\r\n") != NULL || _hrneo_connect() != 0) {
++		return 0;
++	}
++
++	int len = snprintf(buf, sizeof(buf), "MATCH %s\n", domain);
++	if (len <= 0 || len >= (int)sizeof(buf)) {
++		return 0;
++	}
++
++	if (send(hrneo_fd, buf, len, MSG_NOSIGNAL) != len || _hrneo_read_line(buf, sizeof(buf)) != 0) {
++		_hrneo_drop();
++		return 0;
++	}
++
++	if (strncmp(buf, "OK ", 3) == 0 && (end = strchr(buf + 3, ' ')) != NULL) {
++		*end = '\0';
++		*group = _hrneo_group(buf + 3);
++		return 1;
++	}
++
++	if (strcmp(buf, "NO") != 0 && strncmp(buf, "ERR ", 4) != 0) {
++		_hrneo_drop();
++	}
++	return 0;
++}
+diff -ruN a/dns_server/request.c b/dns_server/request.c
+--- a/dns_server/request.c
++++ b/dns_server/request.c
+@@ -33,6 +33,7 @@
+ 
+ #include "smartdns/dns_plugin.h"
+ #include "smartdns/dns_stats.h"
++#include "smartdns/hrneo.h"
+ 
+ int _dns_server_has_bind_flag(struct dns_request *request, uint32_t flag)
+ {
+@@ -918,6 +919,11 @@
+ 		return NULL;
+ 	}
+ 
++	const char *hrneo_group = NULL;
++	if (hrneo_match(request->domain, &hrneo_group) == 1) {
++		return hrneo_group;
++	}
++
+ 	/* Get the nameserver rule */
+ 	if (request->domain_rule.rules[DOMAIN_RULE_NAMESERVER]) {
+ 		struct dns_nameserver_rule *nameserver_rule = _dns_server_get_dns_rule(request, DOMAIN_RULE_NAMESERVER);
+diff -ruN a/include/smartdns/hrneo.h b/include/smartdns/hrneo.h
+--- a/include/smartdns/hrneo.h
++++ b/include/smartdns/hrneo.h
+@@ -0,0 +1,17 @@
++#ifndef _SMARTDNS_HRNEO_H_
++#define _SMARTDNS_HRNEO_H_
++
++#ifdef __cplusplus
++extern "C" {
++#endif /*__cplusplus */
++
++int hrneo_conf_socket(void *data, int argc, char *argv[]);
++
++int hrneo_conf_target(void *data, int argc, char *argv[]);
++
++int hrneo_match(const char *domain, const char **group);
++
++#ifdef __cplusplus
++}
++#endif /*__cplusplus */
++#endif
