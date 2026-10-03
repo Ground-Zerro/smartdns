@@ -439,7 +439,7 @@ diff -ruN a/dns_server/dns_server.h b/dns_server/dns_server.h
  	int has_cname_loop;
 diff -ruN a/dns_server/hrneo.c b/dns_server/hrneo.c
 --- a/dns_server/hrneo.c	1970-01-01 00:00:00.000000000 +0000
-+++ b/dns_server/hrneo.c	2026-10-03 01:39:22.206362561 +0000
++++ b/dns_server/hrneo.c	2026-10-03 02:20:41.960986955 +0000
 @@ -0,0 +1,183 @@
 +#include "smartdns/hrneo.h"
 +#include "smartdns/dns_conf.h"
@@ -616,7 +616,7 @@ diff -ruN a/dns_server/hrneo.c b/dns_server/hrneo.c
 +	if (strncmp(buf, "OK ", 3) == 0 && (end = strchr(buf + 3, ' ')) != NULL) {
 +		*end = '\0';
 +		*group = _hrneo_group(buf + 3);
-+		return 1;
++		return *group != NULL;
 +	}
 +
 +	if (strcmp(buf, "NO") != 0 && strncmp(buf, "ERR ", 4) != 0) {
