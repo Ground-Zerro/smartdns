@@ -9,6 +9,6 @@ hrdns в целом распространяется на условиях **GNU
 | OpenSSL 3.5.8 | https://github.com/openssl/openssl | Apache-2.0 (`LICENSES/Apache-2.0-openssl.txt`) | собирается статически в бинарник `hrdns`, в репозитории не лежит |
 | Зависимости фронтенда | npm, `ui/frontend/package-lock.json` | MIT, Apache-2.0, ISC, BSD (по пакетам) | в статику `ui/backend/www/` попадают собранными |
 
-Сноска «© Nick Peng» во фронтенде сохраняется (условие MIT). hrweb с hrdns не линкуется и лицензию не меняет.
+Футера smartdns во фронтенде нет: уведомление MIT — в `LICENSES/MIT-smartdns-webui.txt` и `ui/backend/www/LICENSE`. hrweb с hrdns не линкуется и лицензию не меняет.
 
 Это справка проекта, а не юридическая консультация.
